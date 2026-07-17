@@ -24,6 +24,33 @@ import { enhanceModelNameWithCodingIndex } from "./provider-failover/benchmark-l
 
 const _logger = createLogger("provider-helper");
 
+interface ContextWithOAuthStatus {
+	model?: unknown;
+	modelRegistry?: {
+		isUsingOAuth?: (model: unknown) => boolean;
+	};
+}
+
+/**
+ * Check OAuth status through Pi's ModelRegistry compatibility facade.
+ * Newer Pi versions no longer expose authStorage on the context.
+ */
+export function isCurrentModelOAuth(ctx: unknown): boolean {
+	if (!ctx || typeof ctx !== "object") return false;
+	const context = ctx as ContextWithOAuthStatus;
+	return Boolean(
+		context.model && context.modelRegistry?.isUsingOAuth?.(context.model),
+	);
+}
+
+export function isOAuthCredential(
+	credential: unknown,
+): credential is { type: "oauth"; access: string } {
+	if (!credential || typeof credential !== "object") return false;
+	const candidate = credential as { type?: unknown; access?: unknown };
+	return candidate.type === "oauth" && typeof candidate.access === "string";
+}
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -336,9 +363,7 @@ export function setupProvider(
 			if (tosShown || ctx.model?.provider !== providerId) return;
 			tosShown = true;
 			if (config.hasKey) return;
-			const authStorage = (ctx as any).modelRegistry?.authStorage;
-			const cred = authStorage?.get(providerId);
-			if (cred?.type === "oauth") return;
+			if (isCurrentModelOAuth(ctx)) return;
 			ctx.ui.notify(
 				`Using ${providerId} free models. Set API key for paid access. Terms: ${tosUrl}`,
 				"info",

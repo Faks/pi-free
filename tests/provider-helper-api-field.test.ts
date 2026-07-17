@@ -16,6 +16,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
 	createCtxReRegister,
 	createReRegister,
+	isCurrentModelOAuth,
+	isOAuthCredential,
 	registerOpenAICompatible,
 } from "../provider-helper.ts";
 
@@ -34,6 +36,26 @@ function makeFakePi(): {
 	});
 	return { registerProvider, calls };
 }
+
+describe("ModelRegistry OAuth compatibility", () => {
+	it("returns false when Pi omits OAuth status APIs", () => {
+		expect(isCurrentModelOAuth({ modelRegistry: {} })).toBe(false);
+		expect(isCurrentModelOAuth({})).toBe(false);
+	});
+
+	it("uses ModelRegistry.isUsingOAuth when available", () => {
+		const model = { provider: "kilo", id: "free-model" };
+		const isUsingOAuth = vi.fn(() => true);
+		const ctx = { model, modelRegistry: { isUsingOAuth } };
+		expect(isCurrentModelOAuth(ctx)).toBe(true);
+		expect(isUsingOAuth).toHaveBeenCalledWith(model);
+	});
+
+	it("validates stored OAuth credentials", () => {
+		expect(isOAuthCredential({ type: "oauth", access: "token" })).toBe(true);
+		expect(isOAuthCredential({ type: "api_key" })).toBe(false);
+	});
+});
 
 describe("OpenAICompatibleConfig.api", () => {
 	describe("registerOpenAICompatible", () => {
